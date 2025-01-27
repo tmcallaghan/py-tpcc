@@ -225,7 +225,8 @@ class MongodbDriver(AbstractDriver):
         self.causal_consistency = False
         self.secondary_reads = False
         self.retry_writes = True
-        self.read_concern = "majority"
+        #self.read_concern = "majority"
+        self.read_concern = "local"
         self.write_concern = pymongo.write_concern.WriteConcern(w=1)
         self.denormalize = True
         self.output = open('results.json','a')
@@ -416,7 +417,7 @@ class MongodbDriver(AbstractDriver):
     def loadFinishDistrict(self, w_id, d_id):
         if self.denormalize:
             logging.debug("Pushing %d denormalized ORDERS records for WAREHOUSE %d DISTRICT %d into MongoDB", len(self.w_orders), w_id, d_id)
-            self.database[constants.TABLENAME_ORDERS].insert(self.w_orders.values())
+            self.database[constants.TABLENAME_ORDERS].insert_many(self.w_orders.values())
             self.w_orders.clear()
         ## IF
 
@@ -1108,28 +1109,43 @@ class MongodbDriver(AbstractDriver):
     # Should we retry txns within the same session or start a new one?
     def run_transaction_with_retries(self, txn_callback, name, params):
         txn_retry_counter = 0
-        to = pymongo.client_session.TransactionOptions(
-            read_concern=None,
-            #read_concern=pymongo.read_concern.ReadConcern("snapshot"),
-            write_concern=self.write_concern,
-            read_preference=pymongo.read_preferences.Primary())
-        with self.client.start_session(default_transaction_options=to,
-                                       causal_consistency=self.causal_consistency) as s:
-            while True:
-                (ok, value) = self.run_transaction(txn_callback, s, name, params)
-                if ok:
-                    if txn_retry_counter > 0:
-                        logging.debug("Committed operation %s after %d retries",
-                                      name,
-                                      txn_retry_counter)
-                    return (value, txn_retry_counter)
-                ## IF
+        if self.no_transactions:
+            with self.client.start_session(causal_consistency=False) as s:
+                while True:
+                    (ok, value) = self.run_transaction(txn_callback, s, name, params)
+                    if ok:
+                        if txn_retry_counter > 0:
+                            logging.debug("Committed operation %s after %d retries",
+                                        name,
+                                        txn_retry_counter)
+                        return (value, txn_retry_counter)
 
-                # backoff a little bit before retry
-                txn_retry_counter += 1
-                sleep(txn_retry_counter * .1)
-                logging.debug("txn retry number for %s: %d", name, txn_retry_counter)
-            ## WHILE
+                    # backoff a little bit before retry
+                    txn_retry_counter += 1
+                    sleep(txn_retry_counter * .1)
+                    logging.debug("txn retry number for %s: %d", name, txn_retry_counter)
+        else:
+            to = pymongo.client_session.TransactionOptions(
+                read_concern=None,
+                #read_concern=pymongo.read_concern.ReadConcern("snapshot"),
+                write_concern=self.write_concern,
+                read_preference=pymongo.read_preferences.Primary())
+            with self.client.start_session(default_transaction_options=to,
+                                        causal_consistency=self.causal_consistency) as s:
+                while True:
+                    (ok, value) = self.run_transaction(txn_callback, s, name, params)
+                    if ok:
+                        if txn_retry_counter > 0:
+                            logging.debug("Committed operation %s after %d retries",
+                                        name,
+                                        txn_retry_counter)
+                        return (value, txn_retry_counter)
+
+                    # backoff a little bit before retry
+                    txn_retry_counter += 1
+                    sleep(txn_retry_counter * .1)
+                    logging.debug("txn retry number for %s: %d", name, txn_retry_counter)
+
     def get_server_status(self):
         ss=self.client.admin.command('serverStatus')
         if "$configServerState" in ss:
