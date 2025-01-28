@@ -106,7 +106,7 @@ class Loader:
         ## DISTRICT
         d_tuples = [ ]
         for d_id in range(1, self.scaleParameters.districtsPerWarehouse+1):
-            logging.info("  LOAD - %s: %d / %d" % (constants.TABLENAME_DISTRICT, d_id, self.scaleParameters.districtsPerWarehouse+1))
+            logging.info("  LOAD - %s: %d / %d" % (constants.TABLENAME_DISTRICT, d_id, self.scaleParameters.districtsPerWarehouse))
             d_next_o_id = self.scaleParameters.customersPerDistrict + 1
             d_tuples = [ self.generateDistrict(w_id, d_id, d_next_o_id) ]
 

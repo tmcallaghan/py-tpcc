@@ -253,6 +253,7 @@ if __name__ == '__main__':
 
     ## Create ScaleParameters
     scaleParameters = scaleparameters.makeWithScaleFactor(args['warehouses'], args['scalefactor'])
+    logging.info("Scale Parameters:\n%s", scaleParameters)
     if args['debug']:
         logging.debug("Scale Parameters:\n%s", scaleParameters)
 
