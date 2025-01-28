@@ -97,6 +97,7 @@ class Loader:
     ## ==============================================
     def loadWarehouse(self, w_id):
         logging.debug("LOAD - %s: %d / %d" % (constants.TABLENAME_WAREHOUSE, w_id, len(self.w_ids)))
+        logging.info("LOAD - %s: %d / %d" % (constants.TABLENAME_WAREHOUSE, w_id, len(self.w_ids)))
 
         ## WAREHOUSE
         w_tuples = [ self.generateWarehouse(w_id) ]
